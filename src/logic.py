@@ -1,19 +1,26 @@
 import asyncio
 from netschoolapi import NetSchoolAPI
 import datetime
+import telebot
+global nada_na_4, nada_na_5, ns
+nada_na_4 = {}
+nada_na_5 = {}
+log = ''
+pas = ''
+schl = ''
+ns = NetSchoolAPI('https://sgo.tomedu.ru/')
 
-async def main():
+async def calculate():
+    global nada_na_4, nada_na_5, log, pas, schl, ns
     d = datetime.date.today()
     if int(d.month) >= 9 and int(d.month) <= 12:
         dt = 1
     else:
         dt = 2
-    ns = NetSchoolAPI('') # ссылка на дневник
-
     await ns.login(
-        '',    # Логин
-        '',       # Пароль
-        '', # Название школы
+        log,
+        pas,
+        schl,
     )
     if dt == 1:
         dn = await ns.diary(datetime.date(2021, 9, 1), datetime.date(2022, 1, 1))
@@ -21,8 +28,6 @@ async def main():
         dn = await ns.diary(datetime.date(2022, 1, 10), datetime.date(2022, 5, 25))
     otmetki = {}
     cnt = {}
-    nada_na_4 = {}
-    nada_na_5 = {}
     for i in range(len(dn.schedule)):
         day = dn.schedule[i]
         for j in range(len(day.lessons)):
@@ -45,17 +50,40 @@ async def main():
             tmp1 += 5
             tmp2 += 1
             nada_na_5[i] = nada_na_5.get(i, "") + "5 "
-    print("На хорошиста надо:")
-    if nada_na_4:
-        print(nada_na_4)
-    else:
-        print("А я всё думал, когда же ты начнёшь учиться...")
-    print("На отличника надо:")
-    if nada_na_5:
-        print(nada_na_5)
-    else:
-        print("Невозможно, колличеству твоих пятёрок нет числа...")
     await ns.logout()
+bot = telebot.TeleBot('5190463708:AAHFf-H4-8ItOzo5JrPD0Mf7spF8R35Uoj0')
+@bot.message_handler(content_types=['text', 'document', 'audio'])
+def start(message):
+    bot.send_message(message.from_user.id, "Доброго времени бытия! Меня зовут Носков Леонид и я могу посчитать тебе необходимые оценки, для хорошего конца учебного периода. Но сначала мне нужны твои личные данные. Напиши свой логин от сетевого города.");
+    bot.register_next_step_handler(message, get_login);
+def get_login(message):
+    global log;
+    log = message.text;
+    bot.send_message(message.from_user.id, 'Хорошо, теперь напиши свой пароль, пожалуйста. (я не украду, честно)');
+    bot.register_next_step_handler(message, get_pass);
 
-if __name__ == '__main__':
-    asyncio.run(main())
+def get_pass(message):
+    global pas;
+    pas = message.text;
+    bot.send_message(message.from_user.id, 'И из какой же ты школы?(название школы должно символ в символ повторять название на сетевом городе)');
+    bot.register_next_step_handler(message, get_school);
+
+def get_school(message):
+    global schl, nada_na_4, nada_na_5
+    schl = message.text
+    asyncio.run(calculate())
+    bot.send_message(message.from_user.id, "На хорошиста надо:");
+    if nada_na_4:
+        for i in nada_na_4:
+            bot.send_message(message.from_user.id, i + ': ' + nada_na_4[i]);
+    else:
+        bot.send_message(message.from_user.id, "А я всё думал, когда же ты начнёшь учиться...");
+    bot.send_message(message.from_user.id, "На отличника надо:");
+    if nada_na_5:
+        for i in nada_na_5:
+            bot.send_message(message.from_user.id, i + ': ' + nada_na_5[i]);
+    else:
+        bot.send_message(message.from_user.id, "Невозможно, колличеству твоих пятёрок нет числа...");
+    nada_na_4 = {}
+    nada_na_5 = {}
+bot.polling(none_stop=True, interval=0)
